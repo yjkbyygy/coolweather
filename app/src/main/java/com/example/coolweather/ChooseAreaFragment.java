@@ -64,6 +64,11 @@ public class ChooseAreaFragment extends Fragment {
     private List<City> cityList;
 
     /**
+     * 县列表
+     */
+    private List<County> countyList;
+
+    /**
      * 选中的省份
      */
     private Province selectedProvince;
@@ -103,6 +108,20 @@ public class ChooseAreaFragment extends Fragment {
                 } else if (currentLevel == LEVEL_CITY) {
                     selectedCity = cityList.get(position);
                     queryCounties();
+                } else if (currentLevel == LEVEL_COUNTY) {
+                    String weatherId = countyList.get(position).getWeatherId();
+                    if(getActivity() instanceof MainActivity){
+                        Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                        intent.putExtra("weather_id", weatherId);
+                        startActivity(intent);
+                        getActivity().finish();
+                    }else if(getActivity() instanceof WeatherActivity){
+                        WeatherActivity activity = (WeatherActivity) getActivity();
+                        activity.drawerLayout.closeDrawers();
+                        activity.swipeRefesh.setRefreshing(true);
+                        activity.requestWeather(weatherId);
+                    }
+
                 }
             }
         });
@@ -168,14 +187,22 @@ public class ChooseAreaFragment extends Fragment {
     private void queryCounties() {
         titleText.setText(selectedCity.getCityName());
         backButton.setVisibility(View.VISIBLE);
-        /*
-      县列表
-     */
-        List<County> countyList = DataSupport.where("cityid = ?", String.valueOf(selectedCity.getId())).find(County.class);
+        Log.d(TAG,"search db");
+        countyList = DataSupport.where("cityid = ?", String.valueOf(selectedCity.getId())).find(County.class);
         if (countyList.size() > 0) {
             dataList.clear();
             for (County county : countyList) {
+                Log.d(TAG,"add here");
                 dataList.add(county.getCountyName());
+                if(county.getWeatherId() == null)
+                {
+                    Log.d(TAG,"eee");
+                    int provinceCode = selectedProvince.getProvinceCode();
+                    int cityCode = selectedCity.getCityCode();
+                    String address = "http://guolin.tech/api/china/" + provinceCode + "/" + cityCode;
+                    Log.d(TAG,address);
+                    queryFromServer(address, "county");
+                }
             }
             adapter.notifyDataSetChanged();
             listView.setSelection(0);
@@ -184,6 +211,7 @@ public class ChooseAreaFragment extends Fragment {
             int provinceCode = selectedProvince.getProvinceCode();
             int cityCode = selectedCity.getCityCode();
             String address = "http://guolin.tech/api/china/" + provinceCode + "/" + cityCode;
+            Log.d(TAG,address);
             queryFromServer(address, "county");
         }
     }
@@ -203,6 +231,7 @@ public class ChooseAreaFragment extends Fragment {
                 } else if ("city".equals(type)) {
                     result = Utility.handleCityResponse(responseText, selectedProvince.getId());
                 } else if ("county".equals(type)) {
+                    Log.d(TAG,"handle county");
                     result = Utility.handleCountyResponse(responseText, selectedCity.getId());
                 }
                 if (result) {
